@@ -12,27 +12,71 @@ import pandas as pd
 myReward = 0
 finalReward = 10
 holeReward = -10
-max_iter = 100000
+max_iter = 10000
 gamma = 0.99
-epsilon = 0.9
-epsilon_min = 0.4
+epsilon = 0.99
+epsilon_min = 0.3
 
 
-def value_iteration(P, R):
+def show_policy_map(title, policy, map_desc, color_map, direction_map):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, xlim=(0, policy.shape[1]), ylim=(0, policy.shape[0]))
+    font_size = 'x-large'
+    if policy.shape[1] > 16:
+        font_size = 'small'
+    plt.title(title)
+    for i in range(policy.shape[0]):
+        for j in range(policy.shape[1]):
+            y = policy.shape[0] - i - 1
+            x = j
+            p = plt.Rectangle([x, y], 1, 1)
+
+            p.set_facecolor(color_map[map_desc[i, j]])
+            ax.add_patch(p)
+
+            text = ax.text(x + 0.5, y + 0.5, direction_map[policy[i, j]], weight='bold', size=font_size,
+                           horizontalalignment='center', verticalalignment='center', color='w')
+
+    plt.axis('off')
+    plt.xlim((0, policy.shape[1]))
+    plt.ylim((0, policy.shape[0]))
+    plt.tight_layout()
+    plt.savefig('images/'+title+str('.png'))
+    plt.close()
+
+    return plt
+
+def colors():
+    return {
+        b'S': 'green',
+        b'F': 'skyblue',
+        b'H': 'black',
+        b'G': 'gold',
+    }
+
+def directions():
+    return {
+        3: '⬆',
+        2: '➡',
+        1: '⬇',
+        0: '⬅'
+    }
+
+def value_iteration(P, R, gamma):
     np.random.seed(666)
     value_iter = mdptoolbox.mdp.ValueIteration(P, R, gamma=gamma, max_iter=max_iter)
     value_iter.run()
     return value_iter
 
 
-def policy_iteration(P, R, iter):
+def policy_iteration(P, R, gamma, iter):
     np.random.seed(666)
     policy_iter = mdptoolbox.mdp.PolicyIteration(P, R, gamma=gamma, max_iter=iter)
     policy_iter.run()
     return policy_iter
 
 
-def Qlearning(P, R):
+def Qlearning(P, R, epsilon,epsilon_min,gamma):
     np.random.seed(666)
     qlearner = mdptoolbox.mdp.QLearning(P, R, gamma=gamma, n_iter=max_iter, epsilon=epsilon, epsilon_decay=0.1,
                                         epsilon_min=epsilon_min)
@@ -77,29 +121,44 @@ p = []
 q_t = []
 v_t = []
 p_t = []
+p_x = []
 
-vi = value_iteration(P, R)
-print(vi.run_stats[-1])
+vi = value_iteration(P, R,gamma)
+
+plot = show_policy_map(
+    'Optimum Policy_value_iter_Frozenlake' + str(epsilon) + '_' + str(max_iter) + '_' + str(epsilon_min)+ str(gamma) ,
+    np.array(vi.policy).reshape(8,8), env.unwrapped.desc, colors(), directions())
 for i in vi.run_stats:
     v.append(i['Max V'])
     v_t.append(i['Time'])
 
-ql = Qlearning(P, R)
+
+
+ql = Qlearning(P, R,epsilon,epsilon_min,gamma)
 for i in ql.run_stats:
     q.append(i['Max V'])
     q_t.append(i['Time'])
     q_x.append((i['Iteration']))
+plot = show_policy_map(
+    'Optimum Policy_Qlearner_Frozenlake' + str(epsilon) + '_' + str(max_iter) + '_' + str(epsilon_min)+ str(gamma) ,
+    np.array(ql.policy).reshape(8,8), env.unwrapped.desc, colors(), directions())
 
-pi = policy_iteration(P, R, 10)
+
+
+pi = policy_iteration(P, R, gamma,12)
+plot = show_policy_map(
+    'Optimum Policy_policy_iter_Frozenlake' + str(epsilon) + '_' + str(max_iter) + '_' + str(epsilon_min)+ str(gamma) ,
+    np.array(pi.policy).reshape(8,8), env.unwrapped.desc, colors(), directions())
 for i in pi.run_stats:
     p.append(i['Max V'])
     p_t.append(i['Time'])
+    p_x.append((i['Iteration']))
 
 fig = plt.figure()
 ax1 = fig.add_subplot(1, 2, 1)
 ax2 = fig.add_subplot(1, 2, 2)
-ax1.plot(range(1, 11), p, 'b--', label='Policy iteration - Max Value')
-ax2.plot(range(1, 11), p_t, 'b--', label='Policy iteration - Time')
+ax1.plot( p_x,p, 'b--', label='Policy iteration - Max Value')
+ax2.plot( p_x, p_t, 'b--', label='Policy iteration - Time')
 ax1.set_xlabel('Iteration')
 ax1.set_ylabel('Max Value')
 ax1.set_title('Policy Iteration')
@@ -108,7 +167,7 @@ ax2.set_xlabel('Iteration')
 ax2.set_ylabel('Time')
 ax2.set_title('Policy Iteration')
 ax2.legend()
-plt.savefig('images/Policy_Iteration_Frozenlake.png')
+plt.savefig('images/Policy_Iteration_Frozenlake'+ str(gamma) +'.png')
 plt.clf()
 
 fig = plt.figure()
@@ -124,7 +183,7 @@ ax2.set_xlabel('Iteration')
 ax2.set_ylabel('Time')
 ax2.set_title('Value Iteration')
 ax2.legend()
-plt.savefig('images/Value_Iteration_Frozenlake.png')
+plt.savefig('images/Value_Iteration_Frozenlake'+ str(gamma) +'.png')
 plt.clf()
 
 fig = plt.figure()
@@ -140,5 +199,5 @@ ax2.set_xlabel('Iteration')
 ax2.set_ylabel('Time')
 ax2.set_title('QLearning')
 ax2.legend()
-plt.savefig('images/QLearning_Frozenlake' + str(epsilon) + '_' + str(max_iter) + '_' + str(epsilon_min) + '.png')
+plt.savefig('images/QLearning_Frozenlake' + str(epsilon) + '_' + str(max_iter) + '_' + str(epsilon_min) + str(gamma) + '.png')
 plt.clf()
